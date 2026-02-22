@@ -43,6 +43,7 @@ Toolchain install supports:
 - frontend only: Node
 - backend only: .NET SDK
 - both: Node + .NET SDK
+For .NET SDK, installer lets you choose 6/7/8/9/10, LTS/STS, custom channel, or exact version.
 
 ## Service behavior
 
@@ -172,4 +173,5 @@ It can:
 - remove update timers (Debian/systemd) or update cron entries (Alpine/openrc)
 - remove saved deployment records/env files
 - optionally remove checked-out repo folders (for example under `/srv/apps`)
+- optionally remove installed toolchains (Node/npm and user-local .NET SDK)
 - optionally reset saved toolchain markers in `~/.config/agpd/config.env`

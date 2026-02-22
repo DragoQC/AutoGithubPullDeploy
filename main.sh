@@ -13,13 +13,12 @@ menu() {
   echo "AutoGithubPullDeploy"
   echo "1) Install dependencies"
   echo "2) Setup GitHub authentication"
-  echo "3) Clone/Update repository"
-  echo "4) Deploy app services (backend/frontend/both)"
-  echo "5) Update deployed app now (frontend/backend/both)"
-  echo "6) Configure automatic update schedule"
+  echo "3) Deploy app services (backend/frontend/both)"
+  echo "4) Configure automatic update schedule"
+  echo "5) Clone/Update repository"
+  echo "6) Update deployed app now (frontend/backend/both)"
   echo "7) Run app from local path (manual/dev)"
-  echo "8) Full setup (1 -> 2 -> 4 -> 6)"
-  echo "9) Cleanup installed deployments/services"
+  echo "8) Cleanup installed deployments/services"
   echo "0) Exit"
 }
 
@@ -36,29 +35,23 @@ main() {
         run_script "github_auth.sh"
         ;;
       3)
-        run_script "pull_repo.sh"
-        ;;
-      4)
         run_script "deploy_stack.sh"
         ;;
+      4)
+        run_script "schedule_updates.sh"
+        ;;
       5)
-        read -r -p "App deployment name: " app_name
-        bash "$ROOT_DIR/scripts/update_deployed.sh" "$app_name"
+        run_script "pull_repo.sh"
         ;;
       6)
-        run_script "schedule_updates.sh"
+        read -r -p "App deployment name: " app_name
+        bash "$ROOT_DIR/scripts/update_deployed.sh" "$app_name"
         ;;
       7)
         read -r -p "Enter local repo path: " repo_path
         bash "$ROOT_DIR/scripts/run_app.sh" "$repo_path"
         ;;
       8)
-        run_script "install_deps.sh"
-        run_script "github_auth.sh"
-        run_script "deploy_stack.sh"
-        run_script "schedule_updates.sh"
-        ;;
-      9)
         run_script "cleanup_install.sh"
         ;;
       0)

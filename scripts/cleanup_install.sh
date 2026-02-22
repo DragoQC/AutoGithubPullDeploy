@@ -54,6 +54,42 @@ remove_openrc_cron_entry() {
   rm -f "$tmp1" "$tmp2"
 }
 
+remove_dotnet_profile_exports() {
+  local profile
+  for profile in "$HOME/.profile" "$HOME/.bashrc"; do
+    [[ -f "$profile" ]] || continue
+    sed -i '/DOTNET_ROOT="\$HOME\/.dotnet"/d' "$profile" || true
+    sed -i '/PATH="\$HOME\/.dotnet:\$HOME\/.dotnet\/tools:\$PATH"/d' "$profile" || true
+  done
+}
+
+remove_toolchains() {
+  local os node_marker dotnet_marker
+  load_config
+  os="$(detect_os)"
+  node_marker="${NODE_INSTALLED:-0}"
+  dotnet_marker="${DOTNET_INSTALLED:-0}"
+
+  if [[ "$node_marker" == "1" ]]; then
+    echo "Removing Node.js/npm..."
+    case "$os" in
+      debian) sudo_if_needed apt-get remove -y nodejs npm >/dev/null 2>&1 || true ;;
+      alpine) sudo_if_needed apk del nodejs npm >/dev/null 2>&1 || true ;;
+    esac
+  fi
+
+  if [[ "$dotnet_marker" == "1" || -d "$HOME/.dotnet" ]]; then
+    echo "Removing .NET SDK from $HOME/.dotnet..."
+    rm -rf "$HOME/.dotnet"
+    remove_dotnet_profile_exports
+  fi
+
+  save_config_kv "INSTALL_PROFILE" "none"
+  save_config_kv "NODE_INSTALLED" "0"
+  save_config_kv "DOTNET_INSTALLED" "0"
+  echo "Toolchain cleanup complete."
+}
+
 cleanup_one_app() {
   local app_name="$1"
   local delete_repo="$2"
@@ -99,49 +135,57 @@ main() {
   print_header
   echo "Cleanup Installed Deployments"
 
-  if ! list_apps >/dev/null 2>&1; then
-    echo "No deployments found."
-    exit 0
-  fi
+  local has_apps mode app_name delete_repo remove_toolchain_choice reset_markers
+  has_apps=0
+  if list_apps >/dev/null 2>&1; then
+    has_apps=1
+    echo "Existing deployments:"
+    list_apps | sed 's/^/- /'
+    echo
+    echo "1) Cleanup one app"
+    echo "2) Cleanup all apps"
+    echo "3) Skip app cleanup"
+    read -r -p "Choose [1-3]: " mode
 
-  echo "Existing deployments:"
-  list_apps | sed 's/^/- /'
+    read -r -p "Delete checked-out repo directories too? [y/N]: " delete_repo
+    if [[ "$delete_repo" =~ ^[Yy]$ ]]; then
+      delete_repo="1"
+    else
+      delete_repo="0"
+    fi
 
-  local mode app_name delete_repo reset_markers
-  echo
-  echo "1) Cleanup one app"
-  echo "2) Cleanup all apps"
-  read -r -p "Choose [1-2]: " mode
-
-  read -r -p "Delete checked-out repo directories too? [y/N]: " delete_repo
-  if [[ "$delete_repo" =~ ^[Yy]$ ]]; then
-    delete_repo="1"
-  else
-    delete_repo="0"
-  fi
-
-  case "$mode" in
-    1)
-      read -r -p "App name: " app_name
-      cleanup_one_app "$app_name" "$delete_repo"
-      ;;
-    2)
-      while IFS= read -r app_name; do
+    case "$mode" in
+      1)
+        read -r -p "App name: " app_name
         cleanup_one_app "$app_name" "$delete_repo"
-      done < <(list_apps)
-      ;;
-    *)
-      echo "Invalid choice"
-      exit 1
-      ;;
-  esac
+        ;;
+      2)
+        while IFS= read -r app_name; do
+          cleanup_one_app "$app_name" "$delete_repo"
+        done < <(list_apps)
+        ;;
+      3)
+        ;;
+      *)
+        echo "Invalid choice"
+        exit 1
+        ;;
+    esac
+  else
+    echo "No deployments found."
+  fi
 
-  read -r -p "Reset toolchain install markers in config? [y/N]: " reset_markers
-  if [[ "$reset_markers" =~ ^[Yy]$ ]]; then
-    save_config_kv "INSTALL_PROFILE" "none"
-    save_config_kv "NODE_INSTALLED" "0"
-    save_config_kv "DOTNET_INSTALLED" "0"
-    echo "Toolchain markers reset."
+  read -r -p "Remove installed toolchains too (Node/.NET SDK)? [y/N]: " remove_toolchain_choice
+  if [[ "$remove_toolchain_choice" =~ ^[Yy]$ ]]; then
+    remove_toolchains
+  elif [[ "$has_apps" -eq 1 ]]; then
+    read -r -p "Reset toolchain install markers in config? [y/N]: " reset_markers
+    if [[ "$reset_markers" =~ ^[Yy]$ ]]; then
+      save_config_kv "INSTALL_PROFILE" "none"
+      save_config_kv "NODE_INSTALLED" "0"
+      save_config_kv "DOTNET_INSTALLED" "0"
+      echo "Toolchain markers reset."
+    fi
   fi
 
   echo "Cleanup finished."
