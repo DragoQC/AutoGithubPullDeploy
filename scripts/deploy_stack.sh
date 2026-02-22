@@ -191,7 +191,7 @@ main() {
   read -r -p "Target root directory [/srv/apps]: " target_root
   target_root="${target_root:-/srv/apps}"
 
-  repo_dir="$(clone_or_update_repo "$repo_url" "$target_root")"
+  repo_dir="$(clone_or_update_repo "$repo_url" "$target_root" | tail -n 1)"
   echo "Repo ready at: $repo_dir"
 
   if [[ -f "$(app_env_file "$app_name")" ]]; then

@@ -162,3 +162,14 @@ Optional overrides:
 
 - `AGPD_REPO_URL` to point to another repo URL
 - `AGPD_INSTALL_DIR` to change install directory (default `/opt/AutoGithubPullDeploy`)
+
+## Cleanup / Fresh Start
+
+Use menu option `9) Cleanup installed deployments/services` to remove previously managed app services and deployment records.
+
+It can:
+- stop/disable and remove backend/frontend services
+- remove update timers (Debian/systemd) or update cron entries (Alpine/openrc)
+- remove saved deployment records/env files
+- optionally remove checked-out repo folders (for example under `/srv/apps`)
+- optionally reset saved toolchain markers in `~/.config/agpd/config.env`

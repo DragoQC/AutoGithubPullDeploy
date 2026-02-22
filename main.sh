@@ -19,6 +19,7 @@ menu() {
   echo "6) Configure automatic update schedule"
   echo "7) Run app from local path (manual/dev)"
   echo "8) Full setup (1 -> 2 -> 4 -> 6)"
+  echo "9) Cleanup installed deployments/services"
   echo "0) Exit"
 }
 
@@ -56,6 +57,9 @@ main() {
         run_script "github_auth.sh"
         run_script "deploy_stack.sh"
         run_script "schedule_updates.sh"
+        ;;
+      9)
+        run_script "cleanup_install.sh"
         ;;
       0)
         exit 0
