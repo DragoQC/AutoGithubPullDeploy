@@ -74,6 +74,7 @@ sudo rc-service <app>-frontend status
 
 Component mode is locked per app after first deploy.  
 If an app was created as backend-only, you cannot later add frontend to that same app name (and vice versa).
+Backend/frontend path prompts now auto-detect common names (for example `Backend`, `backend`, `FrontEnd`, `Front end`) and will keep prompting instead of exiting on first typo.
 
 ## Migrations during updates
 

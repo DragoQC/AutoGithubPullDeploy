@@ -89,6 +89,9 @@ main() {
         alpine) install_node_alpine ;;
       esac
       install_dotnet_sdk
+      save_config_kv "INSTALL_PROFILE" "full"
+      save_config_kv "NODE_INSTALLED" "1"
+      save_config_kv "DOTNET_INSTALLED" "1"
       echo "Toolchains installed and ready."
       ;;
     2)
@@ -96,10 +99,16 @@ main() {
         debian) install_node_debian ;;
         alpine) install_node_alpine ;;
       esac
+      save_config_kv "INSTALL_PROFILE" "frontend"
+      save_config_kv "NODE_INSTALLED" "1"
+      save_config_kv "DOTNET_INSTALLED" "0"
       echo "Frontend toolchain installed."
       ;;
     3)
       install_dotnet_sdk
+      save_config_kv "INSTALL_PROFILE" "backend"
+      save_config_kv "NODE_INSTALLED" "0"
+      save_config_kv "DOTNET_INSTALLED" "1"
       echo "Backend toolchain installed and ready."
       ;;
     0)

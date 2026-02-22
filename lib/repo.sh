@@ -54,10 +54,10 @@ clone_or_update_repo() {
   target_dir="$target_root/$repo_name"
 
   if [[ -d "$target_dir/.git" ]]; then
-    echo "Repository exists. Pulling latest changes..."
+    echo "Repository exists. Pulling latest changes..." >&2
     git -C "$target_dir" pull --ff-only
   else
-    echo "Cloning repository..."
+    echo "Cloning repository..." >&2
     git clone "$url" "$target_dir"
   fi
 

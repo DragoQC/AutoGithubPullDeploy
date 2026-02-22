@@ -65,6 +65,107 @@ EOF_OPENRC
   sudo_if_needed rc-service "$service_name" restart || sudo_if_needed rc-service "$service_name" start
 }
 
+normalize_dir_token() {
+  local s="$1"
+  s="${s,,}"
+  s="${s//[^a-z0-9]/}"
+  printf '%s' "$s"
+}
+
+auto_detect_component_path() {
+  local repo_dir="$1"
+  local component="$2"
+  local best_exact=""
+  local best_exact_depth=9999
+  local best_fuzzy=""
+  local best_fuzzy_depth=9999
+  local dir rel base token depth
+
+  while IFS= read -r -d '' dir; do
+    rel="${dir#"$repo_dir"/}"
+    base="$(basename "$dir")"
+    token="$(normalize_dir_token "$base")"
+    depth="$(awk -F/ '{print NF}' <<< "$rel")"
+
+    if [[ "$component" == "backend" ]]; then
+      if [[ "$token" == "backend" ]]; then
+        if (( depth < best_exact_depth )); then
+          best_exact="$rel"
+          best_exact_depth=$depth
+        fi
+      elif [[ "$token" == *backend* ]]; then
+        if (( depth < best_fuzzy_depth )); then
+          best_fuzzy="$rel"
+          best_fuzzy_depth=$depth
+        fi
+      fi
+    else
+      if [[ "$token" == "frontend" ]]; then
+        if (( depth < best_exact_depth )); then
+          best_exact="$rel"
+          best_exact_depth=$depth
+        fi
+      elif [[ "$token" == *frontend* ]]; then
+        if (( depth < best_fuzzy_depth )); then
+          best_fuzzy="$rel"
+          best_fuzzy_depth=$depth
+        fi
+      fi
+    fi
+  done < <(
+    find "$repo_dir" -mindepth 1 -maxdepth 4 -type d \
+      ! -path '*/.git/*' \
+      ! -path '*/node_modules/*' \
+      ! -path '*/bin/*' \
+      ! -path '*/obj/*' \
+      -print0
+  )
+
+  if [[ -n "$best_exact" ]]; then
+    echo "$best_exact"
+  else
+    echo "$best_fuzzy"
+  fi
+}
+
+prompt_component_path() {
+  local repo_dir="$1"
+  local component="$2"
+  local suggested="$3"
+  local label input
+
+  if [[ "$component" == "backend" ]]; then
+    label="Backend path inside repo"
+  else
+    label="Frontend path inside repo"
+  fi
+
+  if [[ -z "$suggested" ]]; then
+    suggested="$(auto_detect_component_path "$repo_dir" "$component")"
+  fi
+
+  while true; do
+    if [[ -n "$suggested" ]]; then
+      read -r -p "$label [$suggested]: " input
+      input="${input:-$suggested}"
+    else
+      read -r -p "$label: " input
+    fi
+
+    if [[ -d "$repo_dir/$input" ]]; then
+      echo "$input"
+      return 0
+    fi
+
+    echo "Path not found: $repo_dir/$input"
+    suggested="$(auto_detect_component_path "$repo_dir" "$component")"
+    if [[ -n "$suggested" ]]; then
+      echo "Detected possible $component path: $suggested"
+    fi
+    echo "Please try again."
+  done
+}
+
 main() {
   require_cmd git
   load_config
@@ -118,19 +219,11 @@ main() {
   fi
 
   if [[ $enable_backend -eq 1 ]]; then
-    read -r -p "Backend path inside repo (e.g. backend/Api): " backend_rel
-    if [[ ! -d "$repo_dir/$backend_rel" ]]; then
-      echo "Backend path not found: $repo_dir/$backend_rel"
-      exit 1
-    fi
+    backend_rel="$(prompt_component_path "$repo_dir" "backend" "${BACKEND_REL:-}")"
   fi
 
   if [[ $enable_frontend -eq 1 ]]; then
-    read -r -p "Frontend path inside repo (e.g. frontend): " frontend_rel
-    if [[ ! -d "$repo_dir/$frontend_rel" ]]; then
-      echo "Frontend path not found: $repo_dir/$frontend_rel"
-      exit 1
-    fi
+    frontend_rel="$(prompt_component_path "$repo_dir" "frontend" "${FRONTEND_REL:-}")"
   fi
 
   env_root="$(app_env_dir "$app_name")"
