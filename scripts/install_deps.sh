@@ -35,12 +35,20 @@ ensure_dotnet_profile_exports() {
     if ! grep -q 'HOME/.dotnet/tools' "$profile" 2>/dev/null; then
       echo 'export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"' >> "$profile"
     fi
+    if ! grep -q 'DOTNET_CLI_TELEMETRY_OPTOUT=' "$profile" 2>/dev/null; then
+      echo 'export DOTNET_CLI_TELEMETRY_OPTOUT="1"' >> "$profile"
+    fi
+    if ! grep -q 'DOTNET_SKIP_FIRST_TIME_EXPERIENCE=' "$profile" 2>/dev/null; then
+      echo 'export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"' >> "$profile"
+    fi
   done
 }
 
 activate_dotnet_path_now() {
   export DOTNET_ROOT="$HOME/.dotnet"
   export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"
+  export DOTNET_CLI_TELEMETRY_OPTOUT="1"
+  export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"
 }
 
 choose_dotnet_target() {
@@ -101,7 +109,8 @@ install_dotnet_sdk() {
     dotnet_args=(--channel "${DOTNET_INSTALL_CHANNEL:-STS}")
   fi
 
-  bash /tmp/dotnet-install.sh "${dotnet_args[@]}" --install-dir "$HOME/.dotnet"
+  DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    bash /tmp/dotnet-install.sh "${dotnet_args[@]}" --install-dir "$HOME/.dotnet"
   ensure_dotnet_profile_exports
   activate_dotnet_path_now
   if ! command -v dotnet >/dev/null 2>&1; then

@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/../lib/deploy.sh"
 
 run_as_deploy_user() {
   local cmd="$1"
-  local preamble='export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; '
+  local preamble='export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; '
   if [[ "$(id -u)" -eq 0 ]]; then
     if command -v runuser >/dev/null 2>&1; then
       runuser -u "$DEPLOY_USER" -- bash -lc "${preamble}${cmd}"

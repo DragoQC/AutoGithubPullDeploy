@@ -60,6 +60,8 @@ remove_dotnet_profile_exports() {
     [[ -f "$profile" ]] || continue
     sed -i '/DOTNET_ROOT="\$HOME\/.dotnet"/d' "$profile" || true
     sed -i '/PATH="\$HOME\/.dotnet:\$HOME\/.dotnet\/tools:\$PATH"/d' "$profile" || true
+    sed -i '/DOTNET_CLI_TELEMETRY_OPTOUT=/d' "$profile" || true
+    sed -i '/DOTNET_SKIP_FIRST_TIME_EXPERIENCE=/d' "$profile" || true
   done
 }
 

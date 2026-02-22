@@ -27,7 +27,7 @@ User=$USER
 Group=$(id -gn)
 WorkingDirectory=$workdir
 Environment=HOME=$HOME
-ExecStart=/usr/bin/env bash -lc 'export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; if [[ -f "$env_file" ]]; then set -a; source "$env_file"; set +a; fi; exec ${command}'
+ExecStart=/usr/bin/env bash -lc 'export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; if [[ -f "$env_file" ]]; then set -a; source "$env_file"; set +a; fi; exec ${command}'
 Restart=always
 RestartSec=5
 
@@ -52,7 +52,7 @@ name="${service_name}"
 description="${service_name}"
 directory="${workdir}"
 command="/bin/sh"
-command_args="-lc 'export DOTNET_ROOT=\"$HOME/.dotnet\"; export PATH=\"$HOME/.dotnet:$HOME/.dotnet/tools:$PATH\"; if [ -f \"$env_file\" ]; then set -a; . \"$env_file\"; set +a; fi; exec ${command}'"
+command_args="-lc 'export DOTNET_ROOT=\"$HOME/.dotnet\"; export PATH=\"$HOME/.dotnet:$HOME/.dotnet/tools:$PATH\"; export DOTNET_CLI_TELEMETRY_OPTOUT=\"1\"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=\"1\"; if [ -f \"$env_file\" ]; then set -a; . \"$env_file\"; set +a; fi; exec ${command}'"
 command_user="$USER:$(id -gn)"
 pidfile="/run/${service_name}.pid"
 command_background="yes"
