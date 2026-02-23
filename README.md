@@ -8,6 +8,8 @@ Minimal Bash toolkit for one app deployment flow:
 - Setup cron to auto-run update
 - Update flow: delete old code, re-clone repo, run DB migration
 
+Note: repository operations are SSH-only (`git@github.com:owner/repo.git`).
+
 ## Files
 
 - `install.sh`: bootstrap installer (clone/update repo into `/opt/AutoGithubPullDeploy` and open menu)
@@ -65,4 +67,3 @@ DB password is auto-generated strong and written to credentials files.
 2. fresh clone of configured branch/repo
 3. run backend `dotnet restore`
 4. run migration command (default `dotnet ef database update`)
-

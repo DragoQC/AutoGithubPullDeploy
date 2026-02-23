@@ -32,6 +32,11 @@ main() {
   read -r -p "GitHub repo URL [${REPO_URL:-}]: " repo_url
   repo_url="${repo_url:-${REPO_URL:-}}"
   [[ -n "$repo_url" ]] || { echo "Repo URL is required"; exit 1; }
+  repo_url="$(normalize_repo_url_ssh "$repo_url")"
+  if ! is_ssh_repo_url "$repo_url"; then
+    echo "SSH-only repo URL required (example: git@github.com:owner/repo.git)"
+    exit 1
+  fi
 
   read -r -p "Branch [${REPO_BRANCH:-main}]: " branch
   branch="${branch:-${REPO_BRANCH:-main}}"

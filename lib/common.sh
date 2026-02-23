@@ -95,3 +95,20 @@ c_menu() { colorize "33" "$1"; }    # yellow
 c_node() { colorize "32" "$1"; }    # green
 c_dotnet() { colorize "35" "$1"; }  # purple
 c_db() { colorize "34" "$1"; }      # blue
+
+normalize_repo_url_ssh() {
+  local url="$1"
+  if [[ "$url" =~ ^https://github\.com/([^/]+)/([^/]+)(\.git)?$ ]]; then
+    local owner="${BASH_REMATCH[1]}"
+    local repo="${BASH_REMATCH[2]}"
+    repo="${repo%.git}"
+    printf 'git@github.com:%s/%s.git' "$owner" "$repo"
+    return 0
+  fi
+  printf '%s' "$url"
+}
+
+is_ssh_repo_url() {
+  local url="$1"
+  [[ "$url" =~ ^git@[^:]+:.+/.+(\.git)?$ || "$url" =~ ^ssh://.+$ ]]
+}

@@ -28,6 +28,11 @@ main() {
   creds_file="${DB_CREDENTIALS_FILE:-}"
 
   [[ -n "$app_name" && -n "$repo_url" && -n "$app_dir" ]] || { echo "Missing config. Run option 2 first."; exit 1; }
+  repo_url="$(normalize_repo_url_ssh "$repo_url")"
+  if ! is_ssh_repo_url "$repo_url"; then
+    echo "Configured repo URL is not SSH. Run option 2 and set an SSH URL."
+    exit 1
+  fi
 
   print_header
   echo "$(c_menu "Updating app: $app_name")"
