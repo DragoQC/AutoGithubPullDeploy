@@ -177,6 +177,7 @@ main() {
   local env_root frontend_env_file="" frontend_example="" frontend_example_input=""
   local backend_appsettings_file="" backend_appsettings_example="" backend_appsettings_input=""
   local component_choice enable_backend enable_frontend existing_enable_backend existing_enable_frontend
+  local setup_db_reply
   local backend_service frontend_service
   enable_backend=1
   enable_frontend=1
@@ -221,6 +222,10 @@ main() {
 
   if [[ $enable_backend -eq 1 ]]; then
     backend_rel="$(prompt_component_path "$repo_dir" "backend" "${BACKEND_REL:-}")"
+    read -r -p "Install/configure MariaDB now? [y/N]: " setup_db_reply
+    if [[ "$setup_db_reply" =~ ^[Yy]$ ]]; then
+      bash "$SCRIPT_DIR/install_database.sh"
+    fi
   fi
 
   if [[ $enable_frontend -eq 1 ]]; then

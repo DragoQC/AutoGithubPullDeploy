@@ -118,10 +118,8 @@ cleanup_database_assets() {
 
   if command -v mariadb >/dev/null 2>&1; then
     client="mariadb"
-  elif command -v mysql >/dev/null 2>&1; then
-    client="mysql"
   else
-    echo "No mysql/mariadb client found; skipping DB cleanup."
+    echo "No MariaDB client found; skipping DB cleanup."
     return 0
   fi
 

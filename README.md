@@ -6,7 +6,7 @@ Interactive Bash toolkit to:
 - Deploy backend, frontend, or both from one repo as OS services
 - Pull updates, run backend migrations, and restart services
 - Schedule automatic update checks
-- Install MariaDB/MySQL from menu
+- Optionally install and configure MariaDB during deploy
 
 ## Files
 
@@ -22,7 +22,7 @@ Interactive Bash toolkit to:
 - `scripts/update_deployed.sh`: pull + restore + migrate + restart for one deployed app
 - `scripts/schedule_updates.sh`: configure periodic auto-updates
 - `scripts/run_app.sh`: local dev runner for Node or ASP.NET
-- `scripts/install_database.sh`: MariaDB/MySQL installer
+- `scripts/install_database.sh`: MariaDB installer/configurator
 
 ## Quick Start
 
@@ -37,7 +37,6 @@ chmod +x install.sh main.sh scripts/*.sh
 2. `Setup GitHub authentication`
 3. `Deploy app services (backend/frontend/both)`
 4. `Configure automatic update schedule`
-5. `Install database (MariaDB/MySQL)` (optional)
 
 Default repository root is `/srv/apps`.
 If `/srv/apps` is not writable, the script creates it with `sudo` and assigns ownership to the deploy user.
@@ -156,7 +155,7 @@ Optional overrides:
 
 ## Cleanup / Fresh Start
 
-Use menu option `9) Cleanup installed deployments/services` to remove previously managed app services and deployment records.
+Use menu option `8) Cleanup installed deployments/services` to remove previously managed app services and deployment records.
 
 It can:
 - stop/disable and remove backend/frontend services
@@ -169,7 +168,7 @@ It can:
 
 ## Database Setup Details
 
-Menu option `5) Install database (MariaDB/MySQL)` now includes a setup wizard to:
+Deploy option `3` can run MariaDB setup during backend deployment. The setup wizard can:
 - choose localhost-only or external access
 - set app DB name/user/password
 - optionally set root DB password

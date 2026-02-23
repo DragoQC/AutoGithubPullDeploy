@@ -26,28 +26,11 @@ install_mariadb_alpine() {
   sudo_if_needed rc-service mariadb start || true
 }
 
-install_mysql_debian() {
-  sudo_if_needed apt-get update
-  if sudo_if_needed apt-get install -y mysql-server mysql-client; then
-    :
-  else
-    sudo_if_needed apt-get install -y default-mysql-server default-mysql-client
-  fi
-
-  if sudo_if_needed systemctl list-unit-files | grep -q '^mysql\.service'; then
-    sudo_if_needed systemctl enable --now mysql
-  else
-    sudo_if_needed systemctl enable --now mariadb
-  fi
-}
-
 choose_db_client() {
   if command -v mariadb >/dev/null 2>&1; then
     DB_CLIENT_BIN="mariadb"
-  elif command -v mysql >/dev/null 2>&1; then
-    DB_CLIENT_BIN="mysql"
   else
-    echo "No mariadb/mysql client found after install."
+    echo "No MariaDB client found after install."
     exit 1
   fi
 }
@@ -58,22 +41,11 @@ run_sql_file() {
 }
 
 detect_db_config_file() {
-  local engine="$1"
-  local candidates=()
-
-  if [[ "$engine" == "mariadb" ]]; then
-    candidates=(
-      "/etc/mysql/mariadb.conf.d/50-server.cnf"
-      "/etc/my.cnf.d/mariadb-server.cnf"
-      "/etc/my.cnf"
-    )
-  else
-    candidates=(
-      "/etc/mysql/mysql.conf.d/mysqld.cnf"
-      "/etc/mysql/mariadb.conf.d/50-server.cnf"
-      "/etc/my.cnf"
-    )
-  fi
+  local candidates=(
+    "/etc/mysql/mariadb.conf.d/50-server.cnf"
+    "/etc/my.cnf.d/mariadb-server.cnf"
+    "/etc/my.cnf"
+  )
 
   local f
   for f in "${candidates[@]}"; do
@@ -106,16 +78,9 @@ set_bind_address() {
 
 restart_db_service() {
   local os="$1"
-  local engine="$2"
 
   if [[ "$os" == "debian" ]]; then
-    if [[ "$engine" == "mysql" ]] && sudo_if_needed systemctl list-unit-files | grep -q '^mysql\.service'; then
-      sudo_if_needed systemctl restart mysql || true
-    elif sudo_if_needed systemctl list-unit-files | grep -q '^mariadb\.service'; then
-      sudo_if_needed systemctl restart mariadb || true
-    else
-      sudo_if_needed systemctl restart mysql || true
-    fi
+    sudo_if_needed systemctl restart mariadb || true
   elif [[ "$os" == "alpine" ]]; then
     sudo_if_needed rc-service mariadb restart || true
   fi
@@ -152,18 +117,17 @@ escape_sql_string() {
 }
 
 write_credentials_file() {
-  local engine="$1"
-  local bind_addr="$2"
-  local db_name="$3"
-  local db_user="$4"
-  local db_password="$5"
-  local db_user_host="$6"
-  local root_password_set="$7"
+  local bind_addr="$1"
+  local db_name="$2"
+  local db_user="$3"
+  local db_password="$4"
+  local db_user_host="$5"
+  local root_password_set="$6"
 
   sudo_if_needed mkdir -p /etc/agpd
   sudo_if_needed tee "$DB_CREDENTIALS_FILE" >/dev/null <<EOF_CREDS
 # AutoGithubPullDeploy database credentials
-DB_ENGINE="$engine"
+DB_ENGINE="mariadb"
 DB_BIND_ADDRESS="$bind_addr"
 DB_NAME="$db_name"
 DB_USER="$db_user"
@@ -178,7 +142,6 @@ EOF_CREDS
 
 configure_database() {
   local os="$1"
-  local engine="$2"
   local bind_choice bind_addr db_name db_user db_password db_user_host
   local set_root_pass root_password root_password_set
   local db_cfg sql_file esc_db_name esc_db_user esc_db_pass esc_db_host esc_root_pass
@@ -232,9 +195,9 @@ configure_database() {
     root_password_set="1"
   fi
 
-  db_cfg="$(detect_db_config_file "$engine")"
+  db_cfg="$(detect_db_config_file)"
   set_bind_address "$db_cfg" "$bind_addr"
-  restart_db_service "$os" "$engine"
+  restart_db_service "$os"
 
   esc_db_name="$(escape_sql_string "$db_name")"
   esc_db_user="$(escape_sql_string "$db_user")"
@@ -260,66 +223,39 @@ configure_database() {
   run_sql_file "$sql_file"
   rm -f "$sql_file"
 
-  write_credentials_file "$engine" "$bind_addr" "$db_name" "$db_user" "$db_password" "$db_user_host" "$root_password_set"
+  write_credentials_file "$bind_addr" "$db_name" "$db_user" "$db_password" "$db_user_host" "$root_password_set"
 
-  save_config_kv "DB_ENGINE" "$engine"
+  save_config_kv "DB_ENGINE" "mariadb"
   save_config_kv "DB_INSTALLED" "1"
   save_config_kv "DB_BIND_ADDRESS" "$bind_addr"
   save_config_kv "DB_NAME" "$db_name"
   save_config_kv "DB_USER" "$db_user"
 
-  echo "Database configured successfully."
+  echo "MariaDB configured successfully."
 }
 
 main() {
-  local os choice engine
+  local os
   os="$(detect_os)"
 
   print_header
-  echo "Database Installer"
-  echo "1) MariaDB (recommended)"
-  echo "2) MySQL"
-  echo "0) Cancel"
-  read -r -p "Choose [0-2]: " choice
+  echo "MariaDB Installer"
 
-  case "$choice" in
-    1)
-      case "$os" in
-        debian) install_mariadb_debian ;;
-        alpine) install_mariadb_alpine ;;
-        *) echo "Unsupported OS"; exit 1 ;;
-      esac
-      engine="mariadb"
+  case "$os" in
+    debian)
+      install_mariadb_debian
       ;;
-    2)
-      case "$os" in
-        debian)
-          install_mysql_debian
-          engine="mysql"
-          ;;
-        alpine)
-          echo "MySQL packages are not standard on Alpine; installing MariaDB instead."
-          install_mariadb_alpine
-          engine="mariadb"
-          ;;
-        *)
-          echo "Unsupported OS"
-          exit 1
-          ;;
-      esac
-      ;;
-    0)
-      echo "Cancelled."
-      exit 0
+    alpine)
+      install_mariadb_alpine
       ;;
     *)
-      echo "Invalid choice"
+      echo "Unsupported OS"
       exit 1
       ;;
   esac
 
   choose_db_client
-  configure_database "$os" "$engine"
+  configure_database "$os"
 }
 
 main "$@"
