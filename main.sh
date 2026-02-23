@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$ROOT_DIR/lib/common.sh"
 
 run_script() {
   local script="$1"
@@ -10,16 +12,16 @@ run_script() {
 
 menu() {
   echo
-  echo "AutoGithubPullDeploy"
-  echo "1) Install dependencies"
-  echo "2) Setup GitHub authentication"
-  echo "3) Deploy app services (backend/frontend/both)"
-  echo "4) Configure automatic update schedule"
-  echo "5) Clone/Update repository"
-  echo "6) Update deployed app now (frontend/backend/both)"
-  echo "7) Run app from local path (manual/dev)"
-  echo "8) Cleanup installed deployments/services"
-  echo "0) Exit"
+  echo "$(c_menu "AutoGithubPullDeploy")"
+  echo "$(c_menu "1) Install dependencies")"
+  echo "$(c_menu "2) Setup GitHub authentication")"
+  echo "$(c_menu "3) Deploy app services (backend/frontend/both)")"
+  echo "$(c_menu "4) Configure automatic update schedule")"
+  echo "$(c_menu "5) Clone/Update repository")"
+  echo "$(c_menu "6) Update deployed app now (frontend/backend/both)")"
+  echo "$(c_menu "7) Run app from local path (manual/dev)")"
+  echo "$(c_menu "8) Cleanup installed deployments/services")"
+  echo "$(c_menu "0) Exit")"
 }
 
 main() {

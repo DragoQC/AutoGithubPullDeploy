@@ -9,6 +9,26 @@ source "$SCRIPT_DIR/../lib/repo.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/deploy.sh"
 
+run_database_installer() {
+  local candidates=(
+    "$SCRIPT_DIR/install_database.sh"
+    "$SCRIPT_DIR/../scripts/install_database.sh"
+  )
+  local installer
+  for installer in "${candidates[@]}"; do
+    if [[ -f "$installer" ]]; then
+      bash "$installer"
+      return 0
+    fi
+  done
+
+  echo "$(c_db "Could not find install_database.sh. Checked:")"
+  for installer in "${candidates[@]}"; do
+    echo "$(c_db "- $installer")"
+  done
+  exit 1
+}
+
 write_systemd_service() {
   local service_name="$1"
   local workdir="$2"
@@ -171,14 +191,15 @@ main() {
   load_config
 
   print_header
-  echo "Deploy App Services"
+  echo "$(c_menu "Deploy App Services")"
 
   local app_name repo_url target_root repo_dir backend_rel="" frontend_rel="" backend_cmd="" frontend_cmd="" migration_cmd="" os
   local env_root frontend_env_file="" frontend_example="" frontend_example_input=""
   local backend_appsettings_file="" backend_appsettings_example="" backend_appsettings_input=""
   local component_choice enable_backend enable_frontend existing_enable_backend existing_enable_frontend
-  local setup_db_reply
+  local enable_database=0
   local backend_service frontend_service
+  local app_exists=0
   enable_backend=1
   enable_frontend=1
 
@@ -189,43 +210,64 @@ main() {
     exit 1
   fi
 
-  read -r -p "GitHub repo URL: " repo_url
-  read -r -p "Target root directory [/srv/apps]: " target_root
-  target_root="${target_root:-/srv/apps}"
-
-  repo_dir="$(clone_or_update_repo "$repo_url" "$target_root" | tail -n 1)"
-  echo "Repo ready at: $repo_dir"
-
   if [[ -f "$(app_env_file "$app_name")" ]]; then
+    app_exists=1
     load_app_env "$app_name"
     existing_enable_backend="${ENABLE_BACKEND:-1}"
     existing_enable_frontend="${ENABLE_FRONTEND:-1}"
     enable_backend="$existing_enable_backend"
     enable_frontend="$existing_enable_frontend"
     echo
-    echo "Existing deployment detected for $app_name."
-    echo "Component mode is locked: backend=$enable_backend, frontend=$enable_frontend"
+    echo "$(c_menu "Existing deployment detected for $app_name.")"
+    echo "$(c_menu "Component mode is locked: backend=$enable_backend, frontend=$enable_frontend")"
   else
     echo
-    echo "Deploy components:"
-    echo "1) Backend + Frontend"
-    echo "2) Backend only"
-    echo "3) Frontend only"
-    read -r -p "Choose [1-3]: " component_choice
+    echo "$(c_menu "Deploy components:")"
+    echo "$(c_menu "1) Backend + Frontend + Database")"
+    echo "$(c_menu "2) Backend + Frontend")"
+    echo "$(c_menu "3) Frontend only")"
+    echo "$(c_menu "4) Backend only")"
+    echo "$(c_db "5) Database only")"
+    read -r -p "Choose [1-5]: " component_choice
     case "$component_choice" in
-      1) enable_backend=1; enable_frontend=1 ;;
-      2) enable_backend=1; enable_frontend=0 ;;
-      3) enable_backend=0; enable_frontend=1 ;;
+      1) enable_backend=1; enable_frontend=1; enable_database=1 ;;
+      2) enable_backend=1; enable_frontend=1; enable_database=0 ;;
+      3) enable_backend=0; enable_frontend=1; enable_database=0 ;;
+      4) enable_backend=1; enable_frontend=0; enable_database=0 ;;
+      5) enable_backend=0; enable_frontend=0; enable_database=1 ;;
       *) echo "Invalid choice"; exit 1 ;;
     esac
   fi
 
+  if [[ $enable_database -eq 1 && $enable_backend -eq 0 && $enable_frontend -eq 0 ]]; then
+    run_database_installer
+    echo "$(c_db "Database setup complete.")"
+    return 0
+  fi
+
+  if [[ $app_exists -eq 1 ]]; then
+    repo_url="${REPO_URL:-}"
+    if [[ -z "$repo_url" ]]; then
+      read -r -p "GitHub repo URL: " repo_url
+    else
+      echo "$(c_menu "Using stored repo URL: $repo_url")"
+    fi
+  else
+    read -r -p "GitHub repo URL: " repo_url
+  fi
+
+  read -r -p "Target root directory [/srv/apps]: " target_root
+  target_root="${target_root:-/srv/apps}"
+
+  repo_dir="$(clone_or_update_repo "$repo_url" "$target_root" | tail -n 1)"
+  echo "Repo ready at: $repo_dir"
+
   if [[ $enable_backend -eq 1 ]]; then
     backend_rel="$(prompt_component_path "$repo_dir" "backend" "${BACKEND_REL:-}")"
-    read -r -p "Install/configure MariaDB now? [y/N]: " setup_db_reply
-    if [[ "$setup_db_reply" =~ ^[Yy]$ ]]; then
-      bash "$SCRIPT_DIR/install_database.sh"
-    fi
+  fi
+
+  if [[ $enable_database -eq 1 ]]; then
+    run_database_installer
   fi
 
   if [[ $enable_frontend -eq 1 ]]; then
@@ -241,7 +283,7 @@ main() {
   if [[ $enable_backend -eq 1 ]]; then
     backend_appsettings_file="$repo_dir/$backend_rel/appsettings.json"
     backend_appsettings_example="$repo_dir/$backend_rel/appsettings.example.json"
-    read -r -p "Backend appsettings example path [$backend_appsettings_example] (type none to skip): " backend_appsettings_input
+    read -r -p "$(c_dotnet "Backend appsettings example path [$backend_appsettings_example] (type none to skip): ")" backend_appsettings_input
     backend_appsettings_input="${backend_appsettings_input:-$backend_appsettings_example}"
     if [[ "${backend_appsettings_input,,}" == "none" ]]; then
       backend_appsettings_input=""
@@ -250,7 +292,7 @@ main() {
     if [[ ! -f "$backend_appsettings_file" ]]; then
       if [[ -n "$backend_appsettings_input" && -f "$backend_appsettings_input" ]]; then
         cp "$backend_appsettings_input" "$backend_appsettings_file"
-        echo "Created $backend_appsettings_file from example."
+        echo "$(c_dotnet "Created $backend_appsettings_file from example.")"
       else
         cat > "$backend_appsettings_file" <<EOF_APPSETTINGS
 {
@@ -262,10 +304,10 @@ EOF_APPSETTINGS
       fi
     fi
 
-    read -r -p "Backend start command [dotnet run --configuration Release --urls http://0.0.0.0:5000]: " backend_cmd
+    read -r -p "$(c_dotnet "Backend start command [dotnet run --configuration Release --urls http://0.0.0.0:5000]: ")" backend_cmd
     backend_cmd="${backend_cmd:-dotnet run --configuration Release --urls http://0.0.0.0:5000}"
 
-    read -r -p "Migration command [dotnet ef database update] (type none to skip): " migration_cmd
+    read -r -p "$(c_dotnet "Migration command [dotnet ef database update] (type none to skip): ")" migration_cmd
     migration_cmd="${migration_cmd:-dotnet ef database update}"
     if [[ "${migration_cmd,,}" == "none" ]]; then
       migration_cmd=""
@@ -278,7 +320,7 @@ EOF_APPSETTINGS
   fi
 
   if [[ $enable_frontend -eq 1 ]]; then
-    read -r -p "Frontend .env.example path [$frontend_example] (type none to skip): " frontend_example_input
+    read -r -p "$(c_node "Frontend .env.example path [$frontend_example] (type none to skip): ")" frontend_example_input
     frontend_example_input="${frontend_example_input:-$frontend_example}"
     if [[ "${frontend_example_input,,}" == "none" ]]; then
       frontend_example_input=""
@@ -286,7 +328,7 @@ EOF_APPSETTINGS
     ensure_env_file_from_example "$frontend_env_file" "$frontend_example_input" \
       "# Frontend env for $app_name"$'\n'"# VITE_API_BASE_URL=https://api.example.com"
 
-    read -r -p "Frontend start command [npm run dev -- --host 0.0.0.0 --port 4173]: " frontend_cmd
+    read -r -p "$(c_node "Frontend start command [npm run dev -- --host 0.0.0.0 --port 4173]: ")" frontend_cmd
     frontend_cmd="${frontend_cmd:-npm run dev -- --host 0.0.0.0 --port 4173}"
   else
     frontend_rel=""
@@ -344,12 +386,12 @@ EOF_APPSETTINGS
   save_app_kv "$app_name" "BACKEND_ENV_FILE" ""
 
   echo
-  echo "Deployment registered: $app_name"
+  echo "$(c_menu "Deployment registered: $app_name")"
   if [[ -n "$backend_appsettings_file" ]]; then
-    echo "Backend appsettings file: $backend_appsettings_file"
+    echo "$(c_dotnet "Backend appsettings file: $backend_appsettings_file")"
   fi
-  echo "Frontend env file: $frontend_env_file"
-  echo "You can now run updates with scripts/update_deployed.sh $app_name"
+  echo "$(c_node "Frontend env file: $frontend_env_file")"
+  echo "$(c_menu "You can now run updates with scripts/update_deployed.sh $app_name")"
 }
 
 main "$@"

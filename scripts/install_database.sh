@@ -30,7 +30,7 @@ choose_db_client() {
   if command -v mariadb >/dev/null 2>&1; then
     DB_CLIENT_BIN="mariadb"
   else
-    echo "No MariaDB client found after install."
+    echo "$(c_db "No MariaDB client found after install.")"
     exit 1
   fi
 }
@@ -63,7 +63,7 @@ set_bind_address() {
   local bind_addr="$2"
 
   if [[ -z "$cfg_file" || ! -f "$cfg_file" ]]; then
-    echo "DB config file not found; skipping bind-address update."
+    echo "$(c_db "DB config file not found; skipping bind-address update.")"
     return 0
   fi
 
@@ -73,7 +73,7 @@ set_bind_address() {
     printf '\n[mysqld]\nbind-address = %s\n' "$bind_addr" | sudo_if_needed tee -a "$cfg_file" >/dev/null
   fi
 
-  echo "Set bind-address=${bind_addr} in ${cfg_file}"
+  echo "$(c_db "Set bind-address=${bind_addr} in ${cfg_file}")"
 }
 
 restart_db_service() {
@@ -100,11 +100,11 @@ prompt_password_twice() {
     read -r -s -p "Confirm $label: " p2
     echo
     if [[ "$p1" != "$p2" ]]; then
-      echo "Passwords do not match. Try again."
+      echo "$(c_db "Passwords do not match. Try again.")"
       continue
     fi
     if [[ -z "$p1" ]]; then
-      echo "Password cannot be empty. Try again."
+      echo "$(c_db "Password cannot be empty. Try again.")"
       continue
     fi
     printf '%s' "$p1"
@@ -137,7 +137,7 @@ DB_ROOT_PASSWORD_SET="$root_password_set"
 EOF_CREDS
   sudo_if_needed chmod 600 "$DB_CREDENTIALS_FILE"
 
-  echo "Credentials saved: $DB_CREDENTIALS_FILE"
+  echo "$(c_db "Credentials saved: $DB_CREDENTIALS_FILE")"
 }
 
 configure_database() {
@@ -147,30 +147,30 @@ configure_database() {
   local db_cfg sql_file esc_db_name esc_db_user esc_db_pass esc_db_host esc_root_pass
 
   while true; do
-    read -r -p "Application database name [appdb]: " db_name
+    read -r -p "$(c_db "Application database name [appdb]: ")" db_name
     db_name="${db_name:-appdb}"
     if validate_identifier "$db_name"; then
       break
     fi
-    echo "Use only letters, numbers, underscore for database name."
+    echo "$(c_db "Use only letters, numbers, underscore for database name.")"
   done
 
   while true; do
-    read -r -p "Application database user [appuser]: " db_user
+    read -r -p "$(c_db "Application database user [appuser]: ")" db_user
     db_user="${db_user:-appuser}"
     if validate_identifier "$db_user"; then
       break
     fi
-    echo "Use only letters, numbers, underscore for user name."
+    echo "$(c_db "Use only letters, numbers, underscore for user name.")"
   done
 
   db_password="$(prompt_password_twice "Database user password")"
 
   echo
-  echo "Connection mode:"
-  echo "1) Localhost only"
-  echo "2) Allow external connections"
-  read -r -p "Choose [1-2]: " bind_choice
+  echo "$(c_db "Connection mode:")"
+  echo "$(c_db "1) Localhost only")"
+  echo "$(c_db "2) Allow external connections")"
+  read -r -p "$(c_db "Choose [1-2]: ")" bind_choice
 
   case "$bind_choice" in
     1)
@@ -182,12 +182,12 @@ configure_database() {
       db_user_host="%"
       ;;
     *)
-      echo "Invalid choice"
+      echo "$(c_db "Invalid choice")"
       exit 1
       ;;
   esac
 
-  read -r -p "Set root DB password now? [y/N]: " set_root_pass
+  read -r -p "$(c_db "Set root DB password now? [y/N]: ")" set_root_pass
   root_password=""
   root_password_set="0"
   if [[ "$set_root_pass" =~ ^[Yy]$ ]]; then
@@ -231,7 +231,7 @@ configure_database() {
   save_config_kv "DB_NAME" "$db_name"
   save_config_kv "DB_USER" "$db_user"
 
-  echo "MariaDB configured successfully."
+  echo "$(c_db "MariaDB configured successfully.")"
 }
 
 main() {
@@ -239,7 +239,7 @@ main() {
   os="$(detect_os)"
 
   print_header
-  echo "MariaDB Installer"
+  echo "$(c_db "MariaDB Installer")"
 
   case "$os" in
     debian)
@@ -249,7 +249,7 @@ main() {
       install_mariadb_alpine
       ;;
     *)
-      echo "Unsupported OS"
+      echo "$(c_db "Unsupported OS")"
       exit 1
       ;;
   esac

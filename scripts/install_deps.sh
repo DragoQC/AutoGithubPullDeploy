@@ -55,16 +55,16 @@ choose_dotnet_target() {
   local dotnet_choice custom_channel custom_version
 
   echo
-  echo "Select .NET SDK target:"
-  echo "1) .NET 10"
-  echo "2) .NET 9"
-  echo "3) .NET 8"
-  echo "4) .NET 7"
-  echo "5) .NET 6"
-  echo "6) LTS channel"
-  echo "7) STS channel"
-  echo "8) Custom channel (for example 10.0)"
-  echo "9) Exact SDK version (for example 10.0.100)"
+  echo "$(c_dotnet "Select .NET SDK target:")"
+  echo "$(c_dotnet "1) .NET 10")"
+  echo "$(c_dotnet "2) .NET 9")"
+  echo "$(c_dotnet "3) .NET 8")"
+  echo "$(c_dotnet "4) .NET 7")"
+  echo "$(c_dotnet "5) .NET 6")"
+  echo "$(c_dotnet "6) LTS channel")"
+  echo "$(c_dotnet "7) STS channel")"
+  echo "$(c_dotnet "8) Custom channel (for example 10.0)")"
+  echo "$(c_dotnet "9) Exact SDK version (for example 10.0.100)")"
   read -r -p "Choose [1-9]: " dotnet_choice
 
   DOTNET_INSTALL_CHANNEL=""
@@ -100,7 +100,7 @@ choose_dotnet_target() {
 
 install_dotnet_sdk() {
   local dotnet_args=()
-  echo "Installing .NET SDK via dotnet-install script (user local)..."
+  echo "$(c_dotnet "Installing .NET SDK via dotnet-install script (user local)...")"
   curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
 
   if [[ -n "${DOTNET_INSTALL_VERSION:-}" ]]; then
@@ -114,7 +114,7 @@ install_dotnet_sdk() {
   ensure_dotnet_profile_exports
   activate_dotnet_path_now
   if ! command -v dotnet >/dev/null 2>&1; then
-    echo "dotnet is still not in PATH after install."
+    echo "$(c_dotnet "dotnet is still not in PATH after install.")"
     exit 1
   fi
   dotnet --list-sdks | tail -n 5 || true
@@ -126,11 +126,11 @@ main() {
 
   case "$os" in
     debian)
-      echo "Detected Debian-like OS"
+      echo "$(c_menu "Detected Debian-like OS")"
       install_base_deps_debian
       ;;
     alpine)
-      echo "Detected Alpine Linux"
+      echo "$(c_menu "Detected Alpine Linux")"
       install_base_deps_alpine
       ;;
     *)
@@ -140,11 +140,11 @@ main() {
   esac
 
   echo
-  echo "Install app toolchains:"
-  echo "1) Frontend + Backend (Node + .NET SDK)"
-  echo "2) Frontend only (Node)"
-  echo "3) Backend only (.NET SDK)"
-  echo "0) Skip"
+  echo "$(c_menu "Install app toolchains:")"
+  echo "$(c_node "1) Frontend + Backend (Node + .NET SDK)")"
+  echo "$(c_node "2) Frontend only (Node)")"
+  echo "$(c_dotnet "3) Backend only (.NET SDK)")"
+  echo "$(c_menu "0) Skip")"
   read -r -p "Choose [0-3]: " choice
 
   case "$choice" in
@@ -160,7 +160,7 @@ main() {
       save_config_kv "DOTNET_INSTALLED" "1"
       save_config_kv "DOTNET_CHANNEL" "${DOTNET_INSTALL_CHANNEL:-}"
       save_config_kv "DOTNET_VERSION" "${DOTNET_INSTALL_VERSION:-}"
-      echo "Toolchains installed and ready."
+      echo "$(c_menu "Toolchains installed and ready.")"
       ;;
     2)
       case "$os" in
@@ -172,7 +172,7 @@ main() {
       save_config_kv "DOTNET_INSTALLED" "0"
       save_config_kv "DOTNET_CHANNEL" ""
       save_config_kv "DOTNET_VERSION" ""
-      echo "Frontend toolchain installed."
+      echo "$(c_node "Frontend toolchain installed.")"
       ;;
     3)
       choose_dotnet_target
@@ -182,7 +182,7 @@ main() {
       save_config_kv "DOTNET_INSTALLED" "1"
       save_config_kv "DOTNET_CHANNEL" "${DOTNET_INSTALL_CHANNEL:-}"
       save_config_kv "DOTNET_VERSION" "${DOTNET_INSTALL_VERSION:-}"
-      echo "Backend toolchain installed and ready."
+      echo "$(c_dotnet "Backend toolchain installed and ready.")"
       ;;
     0)
       echo "Skipping toolchain installation."

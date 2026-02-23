@@ -70,3 +70,22 @@ print_header() {
   echo "  $APP_NAME"
   echo "=============================================="
 }
+
+supports_color() {
+  [[ -t 1 && -z "${NO_COLOR:-}" ]]
+}
+
+colorize() {
+  local code="$1"
+  local text="$2"
+  if supports_color; then
+    printf '\033[%sm%s\033[0m' "$code" "$text"
+  else
+    printf '%s' "$text"
+  fi
+}
+
+c_menu() { colorize "33" "$1"; }    # yellow
+c_node() { colorize "32" "$1"; }    # green
+c_dotnet() { colorize "35" "$1"; }  # purple
+c_db() { colorize "34" "$1"; }      # blue

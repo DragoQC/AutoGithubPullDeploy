@@ -90,22 +90,22 @@ main() {
   local do_backend=0
 
   if [[ -z "$app_name" ]]; then
-    echo "Usage: $0 <app_name> [frontend|backend|both]"
+    echo "$(c_menu "Usage: $0 <app_name> [frontend|backend|both]")"
     exit 1
   fi
 
   load_app_env "$app_name"
 
-  echo "Updating deployment: $APP_NAME"
-  echo "Repo: $REPO_DIR"
+  echo "$(c_menu "Updating deployment: $APP_NAME")"
+  echo "$(c_menu "Repo: $REPO_DIR")"
 
   if [[ -z "$target" ]]; then
     if [[ "${ENABLE_BACKEND:-1}" == "1" && "${ENABLE_FRONTEND:-1}" == "1" ]]; then
       if [[ -t 0 ]]; then
-        echo "Update target:"
-        echo "1) Backend + Frontend"
-        echo "2) Backend only"
-        echo "3) Frontend only"
+        echo "$(c_menu "Update target:")"
+        echo "$(c_menu "1) Backend + Frontend")"
+        echo "$(c_menu "2) Backend only")"
+        echo "$(c_menu "3) Frontend only")"
         read -r -p "Choose [1-3]: " target
         case "$target" in
           1) target="both" ;;
@@ -145,17 +145,18 @@ main() {
   esac
 
   if [[ $do_backend -eq 1 && "${ENABLE_BACKEND:-1}" != "1" ]]; then
-    echo "Backend is not enabled for this deployment."
+    echo "$(c_dotnet "Backend is not enabled for this deployment.")"
     exit 1
   fi
   if [[ $do_frontend -eq 1 && "${ENABLE_FRONTEND:-1}" != "1" ]]; then
-    echo "Frontend is not enabled for this deployment."
+    echo "$(c_node "Frontend is not enabled for this deployment.")"
     exit 1
   fi
 
   run_as_deploy_user "git -C '$REPO_DIR' pull --ff-only"
 
   if [[ $do_frontend -eq 1 && -n "${FRONTEND_REL:-}" ]]; then
+    echo "$(c_node "Updating frontend dependencies (npm install)...")"
     append_missing_env_lines "$REPO_DIR/$FRONTEND_REL/.env.example" "${FRONTEND_ENV_FILE:-}"
     run_in_dir_with_env "$REPO_DIR/$FRONTEND_REL" "${FRONTEND_ENV_FILE:-}" "npm install"
   fi
@@ -166,20 +167,21 @@ main() {
     fi
     if [[ -n "${BACKEND_APPSETTINGS_FILE:-}" && ! -f "${BACKEND_APPSETTINGS_FILE}" && -f "$REPO_DIR/$BACKEND_REL/appsettings.example.json" ]]; then
       cp "$REPO_DIR/$BACKEND_REL/appsettings.example.json" "${BACKEND_APPSETTINGS_FILE}"
-      echo "Created missing backend appsettings from example: ${BACKEND_APPSETTINGS_FILE}"
+      echo "$(c_dotnet "Created missing backend appsettings from example: ${BACKEND_APPSETTINGS_FILE}")"
     fi
+    echo "$(c_dotnet "Restoring backend (.NET)...")"
     run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "" "dotnet restore"
   fi
 
   if [[ $do_backend -eq 1 && -n "${MIGRATION_CMD:-}" && -n "${BACKEND_REL:-}" ]]; then
-    echo "Applying migrations..."
+    echo "$(c_dotnet "Applying migrations...")"
     run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "" "$MIGRATION_CMD"
   fi
 
-  echo "Restarting services..."
+  echo "$(c_menu "Restarting services...")"
   restart_services "$do_backend" "$do_frontend"
 
-  echo "Update complete for $APP_NAME"
+  echo "$(c_menu "Update complete for $APP_NAME")"
 }
 
 main "$@"
