@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/../lib/common.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/deploy.sh"
 
+DB_CREDENTIALS_FILE="/etc/agpd/db-credentials.env"
+
 remove_systemd_service() {
   local service_name="$1"
   [[ -n "$service_name" ]] || return 0
@@ -72,6 +74,89 @@ remove_dotnet_home() {
   if [[ -d "$dotnet_dir" ]]; then
     rm -rf "$dotnet_dir"
     echo "Removed .NET SDK directory: $dotnet_dir"
+  fi
+}
+
+read_db_credential() {
+  local key="$1"
+  local line
+  if [[ -r "$DB_CREDENTIALS_FILE" ]]; then
+    line="$(grep -E "^${key}=" "$DB_CREDENTIALS_FILE" 2>/dev/null || true)"
+  else
+    line="$(sudo_if_needed grep -E "^${key}=" "$DB_CREDENTIALS_FILE" 2>/dev/null || true)"
+  fi
+  line="${line#*=}"
+  line="${line%\"}"
+  line="${line#\"}"
+  printf '%s' "$line"
+}
+
+escape_sql_string() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
+cleanup_database_assets() {
+  local db_name db_user db_pass db_host client esc_db esc_user esc_host
+  local root_drop_ok=0 user_drop_ok=0 user_drop_user_ok=0
+  local remove_creds
+
+  if [[ ! -f "$DB_CREDENTIALS_FILE" ]]; then
+    echo "No DB credentials file found at $DB_CREDENTIALS_FILE"
+    return 0
+  fi
+
+  db_name="$(read_db_credential "DB_NAME")"
+  db_user="$(read_db_credential "DB_USER")"
+  db_pass="$(read_db_credential "DB_PASSWORD")"
+  db_host="$(read_db_credential "DB_USER_HOST")"
+  db_host="${db_host:-localhost}"
+
+  if [[ -z "$db_name" || -z "$db_user" ]]; then
+    echo "DB credentials file is missing DB_NAME/DB_USER; skipping DB cleanup."
+    return 0
+  fi
+
+  if command -v mariadb >/dev/null 2>&1; then
+    client="mariadb"
+  elif command -v mysql >/dev/null 2>&1; then
+    client="mysql"
+  else
+    echo "No mysql/mariadb client found; skipping DB cleanup."
+    return 0
+  fi
+
+  esc_db="$(escape_sql_string "$db_name")"
+  esc_user="$(escape_sql_string "$db_user")"
+  esc_host="$(escape_sql_string "$db_host")"
+
+  echo "Attempting DB cleanup for database '$db_name' and user '$db_user'@'$db_host'..."
+
+  if sudo_if_needed "$client" -e "DROP DATABASE IF EXISTS \`$esc_db\`; DROP USER IF EXISTS '$esc_user'@'$esc_host'; FLUSH PRIVILEGES;" >/dev/null 2>&1; then
+    root_drop_ok=1
+    echo "Dropped database and user via privileged DB connection."
+  fi
+
+  if [[ $root_drop_ok -eq 0 ]]; then
+    if [[ -n "$db_pass" ]] && MYSQL_PWD="$db_pass" "$client" -u"$db_user" -e "DROP DATABASE IF EXISTS \`$esc_db\`;" >/dev/null 2>&1; then
+      user_drop_ok=1
+      echo "Dropped database using app DB credentials."
+    fi
+
+    if [[ -n "$db_pass" ]] && MYSQL_PWD="$db_pass" "$client" -u"$db_user" -e "DROP USER IF EXISTS '$esc_user'@'$esc_host';" >/dev/null 2>&1; then
+      user_drop_user_ok=1
+      echo "Dropped DB user using app DB credentials."
+    fi
+  fi
+
+  if [[ $root_drop_ok -eq 0 && $user_drop_ok -eq 0 ]]; then
+    echo "Could not drop database automatically. Check DB root access and credentials."
+    return 0
+  fi
+
+  read -r -p "Delete saved DB credentials file ($DB_CREDENTIALS_FILE)? [y/N]: " remove_creds
+  if [[ "$remove_creds" =~ ^[Yy]$ ]]; then
+    sudo_if_needed rm -f "$DB_CREDENTIALS_FILE"
+    echo "Removed $DB_CREDENTIALS_FILE"
   fi
 }
 
@@ -153,7 +238,7 @@ main() {
   print_header
   echo "Cleanup Installed Deployments"
 
-  local has_apps mode app_name delete_repo remove_toolchain_choice reset_markers
+  local has_apps mode app_name delete_repo remove_toolchain_choice reset_markers remove_db_choice
   has_apps=0
   if list_apps >/dev/null 2>&1; then
     has_apps=1
@@ -204,6 +289,11 @@ main() {
       save_config_kv "DOTNET_INSTALLED" "0"
       echo "Toolchain markers reset."
     fi
+  fi
+
+  read -r -p "Delete configured database (drop DB/user) using saved credentials? [y/N]: " remove_db_choice
+  if [[ "$remove_db_choice" =~ ^[Yy]$ ]]; then
+    cleanup_database_assets
   fi
 
   echo "Cleanup finished."

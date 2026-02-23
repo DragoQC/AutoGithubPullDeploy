@@ -165,6 +165,7 @@ It can:
 - optionally remove checked-out repo folders (for example under `/srv/apps`)
 - optionally remove installed toolchains (Node/npm and user-local .NET SDK)
 - optionally reset saved toolchain markers in `~/.config/agpd/config.env`
+- optionally drop configured database/user using `/etc/agpd/db-credentials.env`
 
 ## Database Setup Details
 
