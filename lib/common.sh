@@ -72,7 +72,13 @@ print_header() {
 }
 
 supports_color() {
-  [[ -t 1 && -z "${NO_COLOR:-}" ]]
+  if [[ "${AGPD_FORCE_COLOR:-0}" == "1" || "${CLICOLOR_FORCE:-0}" == "1" || "${FORCE_COLOR:-0}" == "1" ]]; then
+    return 0
+  fi
+  if [[ "${AGPD_NO_COLOR:-0}" == "1" || -n "${NO_COLOR:-}" ]]; then
+    return 1
+  fi
+  [[ -t 1 && "${TERM:-}" != "dumb" ]]
 }
 
 colorize() {
