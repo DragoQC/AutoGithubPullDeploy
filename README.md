@@ -6,6 +6,7 @@ Interactive Bash toolkit to:
 - Deploy backend, frontend, or both from one repo as OS services
 - Pull updates, run backend migrations, and restart services
 - Schedule automatic update checks
+- Install MariaDB/MySQL from menu
 
 ## Files
 
@@ -21,6 +22,7 @@ Interactive Bash toolkit to:
 - `scripts/update_deployed.sh`: pull + restore + migrate + restart for one deployed app
 - `scripts/schedule_updates.sh`: configure periodic auto-updates
 - `scripts/run_app.sh`: local dev runner for Node or ASP.NET
+- `scripts/install_database.sh`: MariaDB/MySQL installer
 
 ## Quick Start
 
@@ -35,6 +37,7 @@ chmod +x install.sh main.sh scripts/*.sh
 2. `Setup GitHub authentication`
 3. `Deploy app services (backend/frontend/both)`
 4. `Configure automatic update schedule`
+5. `Install database (MariaDB/MySQL)` (optional)
 
 Default repository root is `/srv/apps`.
 If `/srv/apps` is not writable, the script creates it with `sudo` and assigns ownership to the deploy user.
@@ -162,3 +165,15 @@ It can:
 - optionally remove checked-out repo folders (for example under `/srv/apps`)
 - optionally remove installed toolchains (Node/npm and user-local .NET SDK)
 - optionally reset saved toolchain markers in `~/.config/agpd/config.env`
+
+## Database Setup Details
+
+Menu option `5) Install database (MariaDB/MySQL)` now includes a setup wizard to:
+- choose localhost-only or external access
+- set app DB name/user/password
+- optionally set root DB password
+- apply secure defaults (remove anonymous users/test DB)
+- save credentials to: `/etc/agpd/db-credentials.env` (mode `600`)
+
+For external access, it sets `bind-address=0.0.0.0` and creates DB user host `%`.
+For local-only access, it sets `bind-address=127.0.0.1` and creates DB user host `localhost`.
