@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/../lib/deploy.sh"
 
 run_as_deploy_user() {
   local cmd="$1"
-  local preamble='export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; '
+  local preamble='export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; export ASPNETCORE_ENVIRONMENT="Production"; '
   if [[ "$(id -u)" -eq 0 ]]; then
     if command -v runuser >/dev/null 2>&1; then
       runuser -u "$DEPLOY_USER" -- bash -lc "${preamble}${cmd}"
@@ -161,13 +161,19 @@ main() {
   fi
 
   if [[ $do_backend -eq 1 && -n "${BACKEND_REL:-}" ]]; then
-    append_missing_env_lines "$REPO_DIR/$BACKEND_REL/.env.example" "${BACKEND_ENV_FILE:-}"
-    run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "${BACKEND_ENV_FILE:-}" "dotnet restore"
+    if [[ -z "${BACKEND_APPSETTINGS_FILE:-}" ]]; then
+      BACKEND_APPSETTINGS_FILE="$REPO_DIR/$BACKEND_REL/appsettings.json"
+    fi
+    if [[ -n "${BACKEND_APPSETTINGS_FILE:-}" && ! -f "${BACKEND_APPSETTINGS_FILE}" && -f "$REPO_DIR/$BACKEND_REL/appsettings.example.json" ]]; then
+      cp "$REPO_DIR/$BACKEND_REL/appsettings.example.json" "${BACKEND_APPSETTINGS_FILE}"
+      echo "Created missing backend appsettings from example: ${BACKEND_APPSETTINGS_FILE}"
+    fi
+    run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "" "dotnet restore"
   fi
 
   if [[ $do_backend -eq 1 && -n "${MIGRATION_CMD:-}" && -n "${BACKEND_REL:-}" ]]; then
     echo "Applying migrations..."
-    run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "${BACKEND_ENV_FILE:-}" "$MIGRATION_CMD"
+    run_in_dir_with_env "$REPO_DIR/$BACKEND_REL" "" "$MIGRATION_CMD"
   fi
 
   echo "Restarting services..."

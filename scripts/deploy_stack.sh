@@ -27,7 +27,7 @@ User=$USER
 Group=$(id -gn)
 WorkingDirectory=$workdir
 Environment=HOME=$HOME
-ExecStart=/usr/bin/env bash -lc 'export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; if [[ -f "$env_file" ]]; then set -a; source "$env_file"; set +a; fi; exec ${command}'
+ExecStart=/usr/bin/env bash -lc 'export DOTNET_ROOT="$HOME/.dotnet"; export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"; export DOTNET_CLI_TELEMETRY_OPTOUT="1"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"; export ASPNETCORE_ENVIRONMENT="Production"; if [[ -f "$env_file" ]]; then set -a; source "$env_file"; set +a; fi; exec ${command}'
 Restart=always
 RestartSec=5
 
@@ -52,7 +52,7 @@ name="${service_name}"
 description="${service_name}"
 directory="${workdir}"
 command="/bin/sh"
-command_args="-lc 'export DOTNET_ROOT=\"$HOME/.dotnet\"; export PATH=\"$HOME/.dotnet:$HOME/.dotnet/tools:$PATH\"; export DOTNET_CLI_TELEMETRY_OPTOUT=\"1\"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=\"1\"; if [ -f \"$env_file\" ]; then set -a; . \"$env_file\"; set +a; fi; exec ${command}'"
+command_args="-lc 'export DOTNET_ROOT=\"$HOME/.dotnet\"; export PATH=\"$HOME/.dotnet:$HOME/.dotnet/tools:$PATH\"; export DOTNET_CLI_TELEMETRY_OPTOUT=\"1\"; export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=\"1\"; export ASPNETCORE_ENVIRONMENT=\"Production\"; if [ -f \"$env_file\" ]; then set -a; . \"$env_file\"; set +a; fi; exec ${command}'"
 command_user="$USER:$(id -gn)"
 pidfile="/run/${service_name}.pid"
 command_background="yes"
@@ -174,7 +174,8 @@ main() {
   echo "Deploy App Services"
 
   local app_name repo_url target_root repo_dir backend_rel="" frontend_rel="" backend_cmd="" frontend_cmd="" migration_cmd="" os
-  local env_root backend_env_file="" frontend_env_file="" backend_example="" frontend_example="" backend_example_input="" frontend_example_input=""
+  local env_root frontend_env_file="" frontend_example="" frontend_example_input=""
+  local backend_appsettings_file="" backend_appsettings_example="" backend_appsettings_input=""
   local component_choice enable_backend enable_frontend existing_enable_backend existing_enable_frontend
   local backend_service frontend_service
   enable_backend=1
@@ -228,20 +229,33 @@ main() {
 
   env_root="$(app_env_dir "$app_name")"
   mkdir -p "$env_root"
-  backend_env_file="$env_root/backend.env"
   frontend_env_file="$env_root/frontend.env"
 
-  backend_example="$repo_dir/$backend_rel/.env.example"
   frontend_example="$repo_dir/$frontend_rel/.env.example"
 
   if [[ $enable_backend -eq 1 ]]; then
-    read -r -p "Backend .env.example path [$backend_example] (type none to skip): " backend_example_input
-    backend_example_input="${backend_example_input:-$backend_example}"
-    if [[ "${backend_example_input,,}" == "none" ]]; then
-      backend_example_input=""
+    backend_appsettings_file="$repo_dir/$backend_rel/appsettings.json"
+    backend_appsettings_example="$repo_dir/$backend_rel/appsettings.example.json"
+    read -r -p "Backend appsettings example path [$backend_appsettings_example] (type none to skip): " backend_appsettings_input
+    backend_appsettings_input="${backend_appsettings_input:-$backend_appsettings_example}"
+    if [[ "${backend_appsettings_input,,}" == "none" ]]; then
+      backend_appsettings_input=""
     fi
-    ensure_env_file_from_example "$backend_env_file" "$backend_example_input" \
-      "# Backend env for $app_name"$'\n'"# ASPNETCORE_ENVIRONMENT=Production"$'\n'"# ConnectionStrings__DefaultConnection=Host=...;Database=...;Username=...;Password=..."
+
+    if [[ ! -f "$backend_appsettings_file" ]]; then
+      if [[ -n "$backend_appsettings_input" && -f "$backend_appsettings_input" ]]; then
+        cp "$backend_appsettings_input" "$backend_appsettings_file"
+        echo "Created $backend_appsettings_file from example."
+      else
+        cat > "$backend_appsettings_file" <<EOF_APPSETTINGS
+{
+  "ConnectionStrings": {
+    "DefaultConnection": ""
+  }
+}
+EOF_APPSETTINGS
+      fi
+    fi
 
     read -r -p "Backend start command [dotnet run --configuration Release --urls http://0.0.0.0:5000]: " backend_cmd
     backend_cmd="${backend_cmd:-dotnet run --configuration Release --urls http://0.0.0.0:5000}"
@@ -255,7 +269,7 @@ main() {
     backend_rel=""
     backend_cmd=""
     migration_cmd=""
-    backend_env_file=""
+    backend_appsettings_file=""
   fi
 
   if [[ $enable_frontend -eq 1 ]]; then
@@ -279,7 +293,7 @@ main() {
   case "$os" in
     debian)
       if [[ $enable_backend -eq 1 ]]; then
-        write_systemd_service "${app_name}-backend" "$repo_dir/$backend_rel" "$backend_cmd" "$backend_env_file"
+        write_systemd_service "${app_name}-backend" "$repo_dir/$backend_rel" "$backend_cmd" ""
       fi
       if [[ $enable_frontend -eq 1 ]]; then
         write_systemd_service "${app_name}-frontend" "$repo_dir/$frontend_rel" "$frontend_cmd" "$frontend_env_file"
@@ -287,7 +301,7 @@ main() {
       ;;
     alpine)
       if [[ $enable_backend -eq 1 ]]; then
-        write_openrc_service "${app_name}-backend" "$repo_dir/$backend_rel" "$backend_cmd" "$backend_env_file"
+        write_openrc_service "${app_name}-backend" "$repo_dir/$backend_rel" "$backend_cmd" ""
       fi
       if [[ $enable_frontend -eq 1 ]]; then
         write_openrc_service "${app_name}-frontend" "$repo_dir/$frontend_rel" "$frontend_cmd" "$frontend_env_file"
@@ -320,12 +334,15 @@ main() {
   save_app_kv "$app_name" "MIGRATION_CMD" "$migration_cmd"
   save_app_kv "$app_name" "DEPLOY_USER" "$USER"
   save_app_kv "$app_name" "DEPLOY_HOME" "$HOME"
-  save_app_kv "$app_name" "BACKEND_ENV_FILE" "$backend_env_file"
+  save_app_kv "$app_name" "BACKEND_APPSETTINGS_FILE" "$backend_appsettings_file"
   save_app_kv "$app_name" "FRONTEND_ENV_FILE" "$frontend_env_file"
+  save_app_kv "$app_name" "BACKEND_ENV_FILE" ""
 
   echo
   echo "Deployment registered: $app_name"
-  echo "Backend env file: $backend_env_file"
+  if [[ -n "$backend_appsettings_file" ]]; then
+    echo "Backend appsettings file: $backend_appsettings_file"
+  fi
   echo "Frontend env file: $frontend_env_file"
   echo "You can now run updates with scripts/update_deployed.sh $app_name"
 }

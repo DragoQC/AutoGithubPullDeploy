@@ -89,27 +89,14 @@ When `update_deployed.sh <app> [frontend|backend|both]` runs, it does:
 5. backend migration command if backend enabled
 6. restart only updated services
 
-## Environment files
+## Config files
 
-During deployment, the script creates two env files per app:
+During deployment:
 
-- `~/.config/agpd/env/<app>/backend.env`
-- `~/.config/agpd/env/<app>/frontend.env`
+- Backend uses `appsettings.example.json` (from backend project) to create `appsettings.json` in the backend folder.
+- Frontend uses env file: `~/.config/agpd/env/<app>/frontend.env`
 
-If `.env.example` exists in backend/frontend project directories, it is copied to these files on first deploy.
-On deploy and on each update, any new keys found in `.env.example` are appended to existing env files (existing keys are left unchanged).
-
-These files are loaded by the created services and also loaded before migrations in `update_deployed.sh`.
-
-### ASP.NET `appsettings` override with env vars
-
-Use double underscore `__` to map nested config keys:
-
-- `ConnectionStrings__DefaultConnection=...`
-- `Logging__LogLevel__Default=Information`
-- `Jwt__Authority=https://...`
-
-`ASPNETCORE_ENVIRONMENT=Production` is also commonly set in `backend.env`.
+Frontend `.env.example` is copied on first deploy, and missing keys are appended on update.
 
 ### Svelte / Vite env vars
 
