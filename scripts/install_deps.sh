@@ -42,7 +42,7 @@ activate_dotnet_now() {
 }
 
 install_dotnet_sdk() {
-  local channel="${1:-LTS}"
+  local channel="10.0"
   echo "$(c_dotnet "Installing .NET SDK channel: $channel")"
   curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
   DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
@@ -53,7 +53,7 @@ install_dotnet_sdk() {
 }
 
 main() {
-  local os choice dotnet_channel
+  local os choice
   os="$(detect_os)"
 
   case "$os" in
@@ -72,17 +72,13 @@ main() {
   case "$choice" in
     1)
       case "$os" in debian) install_node_debian ;; alpine) install_node_alpine ;; esac
-      read -r -p "$(c_dotnet "Dotnet channel [LTS|STS|10.0] (default LTS): ")" dotnet_channel
-      dotnet_channel="${dotnet_channel:-LTS}"
-      install_dotnet_sdk "$dotnet_channel"
+      install_dotnet_sdk
       ;;
     2)
       case "$os" in debian) install_node_debian ;; alpine) install_node_alpine ;; esac
       ;;
     3)
-      read -r -p "$(c_dotnet "Dotnet channel [LTS|STS|10.0] (default LTS): ")" dotnet_channel
-      dotnet_channel="${dotnet_channel:-LTS}"
-      install_dotnet_sdk "$dotnet_channel"
+      install_dotnet_sdk
       ;;
     0) ;;
     *) echo "Invalid choice"; exit 1 ;;
