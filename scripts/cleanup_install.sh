@@ -65,6 +65,16 @@ remove_dotnet_profile_exports() {
   done
 }
 
+remove_dotnet_home() {
+  local home_dir="$1"
+  local dotnet_dir
+  dotnet_dir="${home_dir}/.dotnet"
+  if [[ -d "$dotnet_dir" ]]; then
+    rm -rf "$dotnet_dir"
+    echo "Removed .NET SDK directory: $dotnet_dir"
+  fi
+}
+
 remove_toolchains() {
   local os node_marker dotnet_marker
   load_config
@@ -72,17 +82,23 @@ remove_toolchains() {
   node_marker="${NODE_INSTALLED:-0}"
   dotnet_marker="${DOTNET_INSTALLED:-0}"
 
-  if [[ "$node_marker" == "1" ]]; then
+  if [[ "$node_marker" == "1" || -x "$(command -v node 2>/dev/null || true)" || -x "$(command -v npm 2>/dev/null || true)" ]]; then
     echo "Removing Node.js/npm..."
     case "$os" in
-      debian) sudo_if_needed apt-get remove -y nodejs npm >/dev/null 2>&1 || true ;;
-      alpine) sudo_if_needed apk del nodejs npm >/dev/null 2>&1 || true ;;
+      debian)
+        sudo_if_needed apt-get remove -y nodejs npm >/dev/null 2>&1 || true
+        sudo_if_needed apt-get autoremove -y >/dev/null 2>&1 || true
+        ;;
+      alpine)
+        sudo_if_needed apk del nodejs npm >/dev/null 2>&1 || true
+        ;;
     esac
   fi
 
-  if [[ "$dotnet_marker" == "1" || -d "$HOME/.dotnet" ]]; then
-    echo "Removing .NET SDK from $HOME/.dotnet..."
-    rm -rf "$HOME/.dotnet"
+  if [[ "$dotnet_marker" == "1" || -d "$HOME/.dotnet" || -d "/root/.dotnet" ]]; then
+    echo "Removing user-local .NET SDK directories..."
+    remove_dotnet_home "$HOME"
+    remove_dotnet_home "/root"
     remove_dotnet_profile_exports
   fi
 
