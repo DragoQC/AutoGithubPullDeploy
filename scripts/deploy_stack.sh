@@ -9,6 +9,26 @@ source "$SCRIPT_DIR/../lib/repo.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../lib/deploy.sh"
 
+prepare_frontend_runtime() {
+  local frontend_dir="$1"
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "$(c_node "npm is not installed. Run dependency install first.")"
+    exit 1
+  fi
+  echo "$(c_node "Installing frontend dependencies in $frontend_dir ...")"
+  (cd "$frontend_dir" && npm install)
+}
+
+prepare_backend_runtime() {
+  local backend_dir="$1"
+  if ! command -v dotnet >/dev/null 2>&1; then
+    echo "$(c_dotnet "dotnet is not installed. Run dependency install first.")"
+    exit 1
+  fi
+  echo "$(c_dotnet "Restoring backend dependencies in $backend_dir ...")"
+  (cd "$backend_dir" && dotnet restore)
+}
+
 run_database_installer() {
   local candidates=(
     "$SCRIPT_DIR/install_database.sh"
@@ -334,6 +354,13 @@ EOF_APPSETTINGS
     frontend_rel=""
     frontend_cmd=""
     frontend_env_file=""
+  fi
+
+  if [[ $enable_backend -eq 1 ]]; then
+    prepare_backend_runtime "$repo_dir/$backend_rel"
+  fi
+  if [[ $enable_frontend -eq 1 ]]; then
+    prepare_frontend_runtime "$repo_dir/$frontend_rel"
   fi
 
   os="$(detect_os)"
