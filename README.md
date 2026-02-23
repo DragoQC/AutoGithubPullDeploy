@@ -2,6 +2,7 @@
 
 Minimal Bash toolkit for one app deployment flow:
 - Install dependencies (git/curl/node/dotnet)
+- Generate/setup GitHub SSH key authentication
 - Install + configure MariaDB
 - Clone one GitHub repo into `/srv/apps/<app>`
 - Create `agpd-update` command
@@ -16,6 +17,7 @@ Note: repository operations are SSH-only (`git@github.com:owner/repo.git`).
 - `main.sh`: interactive menu
 - `lib/common.sh`: shared helpers + config
 - `scripts/install_deps.sh`: install base/runtime dependencies
+- `scripts/github_auth.sh`: generate/use SSH key and test GitHub auth
 - `scripts/configure_project.sh`: save app/repo config and clone repo
 - `scripts/install_database.sh`: install MariaDB + create DB/user + generate strong password
 - `scripts/setup_update.sh`: install `/usr/local/bin/agpd-update` + cron
@@ -46,10 +48,11 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/AutoGithubPullDepl
 ## Menu Flow
 
 1. Install dependencies
-2. Configure project + clone repo
-3. Install/configure MariaDB
-4. Install update command + cron
-5. Run update now
+2. GitHub SSH auth (generate key)
+3. Configure project + clone repo
+4. Install/configure MariaDB
+5. Install update command + cron
+6. Run update now
 
 ## Config + Credentials
 
