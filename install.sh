@@ -56,13 +56,37 @@ has_local_repo() {
   [ -n "$d" ] && [ -f "$d/main.sh" ] && [ -d "$d/scripts" ] && [ -d "$d/lib" ]
 }
 
+update_existing_repo() {
+  SUDO="$(need_sudo)"
+  ts="$(date +%Y%m%d-%H%M%S)"
+  stash_name="agpd-autostash-$ts"
+
+  if $SUDO git -C "$INSTALL_DIR" diff --quiet && $SUDO git -C "$INSTALL_DIR" diff --cached --quiet; then
+    $SUDO git -C "$INSTALL_DIR" pull --ff-only
+    return 0
+  fi
+
+  echo "Local changes detected in $INSTALL_DIR. Auto-stashing before update..."
+  $SUDO git -C "$INSTALL_DIR" stash push -u -m "$stash_name" >/dev/null 2>&1 || true
+  $SUDO git -C "$INSTALL_DIR" pull --ff-only
+
+  if $SUDO git -C "$INSTALL_DIR" stash list | grep -q "$stash_name"; then
+    echo "Re-applying local changes from stash..."
+    if ! $SUDO git -C "$INSTALL_DIR" stash pop >/dev/null 2>&1; then
+      echo "Warning: could not auto-apply local changes cleanly."
+      echo "Your changes are still saved in git stash at: $INSTALL_DIR"
+      echo "Run: sudo git -C $INSTALL_DIR stash list"
+    fi
+  fi
+}
+
 ensure_repo() {
   SUDO="$(need_sudo)"
   if [ ! -d "$INSTALL_DIR/.git" ]; then
     $SUDO mkdir -p "$(dirname "$INSTALL_DIR")"
     $SUDO git clone "$REPO_URL" "$INSTALL_DIR"
   else
-    $SUDO git -C "$INSTALL_DIR" pull --ff-only
+    update_existing_repo
   fi
 
   $SUDO chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/main.sh" "$INSTALL_DIR"/scripts/*.sh
